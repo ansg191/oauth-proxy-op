@@ -1,0 +1,45 @@
+apiVersion: oauth.anshulg.com/v1
+kind: Proxy
+metadata:
+  labels:
+    app.kubernetes.io/name: oauth-proxy-op
+    app.kubernetes.io/managed-by: kustomize
+  name: proxy-sample
+spec:
+  provider:
+    type: oidc
+    clientId: client-id
+    clientSecret: client-secret
+#    clientExistingSecret:
+#      name: secrets
+#      key: client-secret
+    codeChallengeMethod: S256
+    oidcIssuerUrl: https://auth.anshulg.com/oauth2/openid/calibre-server
+  cookie:
+    name: cookie-name
+    httpOnly: true
+    sameSite: strict
+    secret: h8omX53skLzHVNeNCQvW7PD6-o3ZGsxZuCWoqQfmAkQ=
+#    existingSecret:
+#      name: secrets
+#      key: cookie-secret
+    secure: true
+  proxy:
+    emailDomains:
+      - "example.com"
+      - '*'
+    reverseProxy: true
+  upstream:
+    upstreams:
+      - http://svc:80/
+  tls:
+    minVersion: TLS1.3
+    volume:
+      csi:
+        driver: csi.cert-manager.io
+        readOnly: true
+        volumeAttributes:
+          csi.cert-manager.io/issuer-kind: ClusterIssuer
+          csi.cert-manager.io/issuer-name: rpi5-ca
+          csi.cert-manager.io/dns-names: "oauth-proxy-sample.${POD_NAMESPACE}.svc.cluster.local,oauth-proxy-sample.${POD_NAMESPACE},oauth-proxy-sample"
+          csi.cert-manager.io/duration: 720h0m0s

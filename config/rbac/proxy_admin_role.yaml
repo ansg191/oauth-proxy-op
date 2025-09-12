@@ -1,0 +1,27 @@
+# This rule is not used by the project oauth-proxy-op itself.
+# It is provided to allow the cluster admin to help manage permissions for users.
+#
+# Grants full permissions ('*') over oauth.anshulg.com.
+# This role is intended for users authorized to modify roles and bindings within the cluster,
+# enabling them to delegate specific permissions to other users or groups as needed.
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: oauth-proxy-op
+    app.kubernetes.io/managed-by: kustomize
+  name: proxy-admin-role
+rules:
+- apiGroups:
+  - oauth.anshulg.com
+  resources:
+  - proxies
+  verbs:
+  - '*'
+- apiGroups:
+  - oauth.anshulg.com
+  resources:
+  - proxies/status
+  verbs:
+  - get
