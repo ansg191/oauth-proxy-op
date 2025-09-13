@@ -422,46 +422,13 @@ var (
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ProxyReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1.Service{}, svcOwnerKey, func(rawObj client.Object) []string {
-		svc := rawObj.(*v1.Service)
-		owner := metav1.GetControllerOf(svc)
-		if owner == nil {
-			return nil
-		}
-		if owner.APIVersion != apiGVStr || owner.Kind != "Proxy" {
-			return nil
-		}
-
-		return []string{owner.Name}
-	}); err != nil {
+	if err := indexField(mgr, &v1.Service{}); err != nil {
 		return err
 	}
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1.Secret{}, svcOwnerKey, func(rawObj client.Object) []string {
-		secret := rawObj.(*v1.Secret)
-		owner := metav1.GetControllerOf(secret)
-		if owner == nil {
-			return nil
-		}
-		if owner.APIVersion != apiGVStr || owner.Kind != "Proxy" {
-			return nil
-		}
-
-		return []string{owner.Name}
-	}); err != nil {
+	if err := indexField(mgr, &v1.Secret{}); err != nil {
 		return err
 	}
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &appsv1.Deployment{}, svcOwnerKey, func(rawObj client.Object) []string {
-		deploy := rawObj.(*appsv1.Deployment)
-		owner := metav1.GetControllerOf(deploy)
-		if owner == nil {
-			return nil
-		}
-		if owner.APIVersion != apiGVStr || owner.Kind != "Proxy" {
-			return nil
-		}
-
-		return []string{owner.Name}
-	}); err != nil {
+	if err := indexField(mgr, &appsv1.Deployment{}); err != nil {
 		return err
 	}
 
@@ -472,4 +439,17 @@ func (r *ProxyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}).
 		Named("proxy").
 		Complete(r)
+}
+
+func indexField(mgr ctrl.Manager, obj client.Object) error {
+	return mgr.GetFieldIndexer().IndexField(context.Background(), obj, svcOwnerKey, func(rawObj client.Object) []string {
+		owner := metav1.GetControllerOf(rawObj)
+		if owner == nil {
+			return nil
+		}
+		if owner.APIVersion != apiGVStr || owner.Kind != "Proxy" {
+			return nil
+		}
+		return []string{owner.Name}
+	})
 }
