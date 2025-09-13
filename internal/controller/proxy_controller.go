@@ -50,7 +50,7 @@ type ProxyReconciler struct {
 // +kubebuilder:rbac:groups=oauth.anshulg.com,resources=proxies/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=apps,resources=deployment,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -450,11 +450,26 @@ func (r *ProxyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}); err != nil {
 		return err
 	}
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &appsv1.Deployment{}, svcOwnerKey, func(rawObj client.Object) []string {
+		deploy := rawObj.(*appsv1.Deployment)
+		owner := metav1.GetControllerOf(deploy)
+		if owner == nil {
+			return nil
+		}
+		if owner.APIVersion != apiGVStr || owner.Kind != "Proxy" {
+			return nil
+		}
+
+		return []string{owner.Name}
+	}); err != nil {
+		return err
+	}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&oauthv1.Proxy{}).
 		Owns(&v1.Service{}).
 		Owns(&v1.Secret{}).
+		Owns(&appsv1.Deployment{}).
 		Named("proxy").
 		Complete(r)
 }
