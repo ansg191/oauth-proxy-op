@@ -25,9 +25,11 @@ import (
 	"github.com/stoewer/go-strcase"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -101,20 +103,31 @@ func (r *ProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 	log.Info("Reconciled Secret", "op", op)
 
-	deploy := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: r.resName(&proxy), Namespace: proxy.Namespace}}
-	op, err = controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
-		newDeploy, err := r.createDeployment(ctx, &proxy)
-		if err != nil {
-			return err
-		}
-		deploy.ObjectMeta = newDeploy.ObjectMeta
-		deploy.Spec = newDeploy.Spec
-		return nil
-	})
+	deploy, err := r.createDeployment(ctx, &proxy)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	log.Info("Reconciled Deployment", "op", op)
+
+	found := &appsv1.Deployment{}
+	err = r.Get(ctx, types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found)
+	if err != nil && errors.IsNotFound(err) {
+		log.Info("Creating a new Deployment", "Deployment.Namespace", deploy.Namespace, "Deployment.Name", deploy.Name)
+		err = r.Create(ctx, deploy)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	} else if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if !reflect.DeepEqual(deploy.Spec, found.Spec) {
+		found.Spec = deploy.Spec
+		log.Info("Updating Deployment", "Deployment.Namespace", found.Namespace, "Deployment.Name", found.Name)
+		err = r.Update(ctx, found)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 
 	return ctrl.Result{}, nil
 }
