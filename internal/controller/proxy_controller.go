@@ -118,9 +118,7 @@ func (r *ProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 	} else if err != nil {
 		return ctrl.Result{}, err
-	}
-
-	if !reflect.DeepEqual(deploy.Spec, found.Spec) {
+	} else if !reflect.DeepEqual(deploy.Spec, found.Spec) {
 		found.Spec = deploy.Spec
 		log.Info("Updating Deployment", "Deployment.Namespace", found.Namespace, "Deployment.Name", found.Name)
 		err = r.Update(ctx, found)
